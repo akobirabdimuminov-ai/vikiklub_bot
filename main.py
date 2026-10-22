@@ -1,8 +1,22 @@
 import os
 import time
+import threading
+from flask import Flask
 from telebot import TeleBot, types
 import database
 
+# ----------------- FLASK VEB SERVER (Render & UptimeRobot uchun) -----------------
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "VikiKlub Bot 24/7 online rejimda ishlamoqda!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
+
+# ----------------- BOT SOZLAMALARI -----------------
 TOKEN = os.getenv("BOT_TOKEN", "8490936302:AAFEmxGfQQAe0JujzYipmT-PnypTSkOgRIg")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "304538764"))
 REQUIRED_CHANNELS = ["uzmu_vikiklub"]
@@ -34,7 +48,7 @@ def start_handler(message):
         database.add_user(user_id)
         user_data[user_id] = {}
 
-        msg = "👋 **Xush kelibsiz!**\n\nWikiKlubga a'zo bo'lish uchun anketani to'ldiramiz.\n\n1️⃣ **Ism va Familiyangizni kiriting:**\n_(Masalan: Akobir Abdimo'minov)_"
+        msg = "👋 **Xush kelibsiz!**\n\nVikiKlubga a'zo bo'lish uchun anketani to'ldiramiz.\n\n1️⃣ **Ism va Familiyangizni kiriting:**\n_(Masalan: Akobir Abdimo'minov)_"
         sent_msg = bot.send_message(user_id, msg, parse_mode="Markdown")
         bot.register_next_step_handler(sent_msg, process_name)
     except Exception as e:
@@ -216,17 +230,23 @@ def finalize_registration(user_id):
     )
     
     try:
-        print(f"Adminga xabar yuborilmoqda: ADMIN_ID={ADMIN_ID}")
         bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
-        print("Adminga xabar muvaffaqiyatli yetib bordi!")
     except Exception as e:
         print(f"❌ ADMINGA XABAR YUBORISHDA XATOLIK: {e}")
 
+# ----------------- ISHGA TUSHIRISH (UZLUKSIZ SIKL) -----------------
 if __name__ == '__main__':
-    print("Bot Render.com serverida ishga tushdi...")
+    # Flask veb-serverini alohida oqimda ishga tushirish
+    server_thread = threading.Thread(target=run_flask)
+    server_thread.daemon = True
+    server_thread.start()
+
+    print("Bot va Veb-server Render.com platformasida ishga tushdi...")
+
+    # Bot uzluksiz ishlashi uchun qayta ulanuvchi sikl
     while True:
         try:
-            bot.polling(none_stop=True, interval=1, timeout=30)
+            bot.polling(non_stop=True, interval=0, timeout=20)
         except Exception as e:
-            print(f"Tarmoq uzilishi: {e}. Qayta ulanmoqda...")
-            time.sleep(5)
+            print(f"Tarmoqda uzilish bo'ldi: {e}. 3 soniyada qayta ulanmoqda...")
+            time.sleep(3)
