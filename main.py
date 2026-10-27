@@ -1,22 +1,8 @@
 import os
 import time
-import threading
-from flask import Flask
 from telebot import TeleBot, types
 import database
 
-# ----------------- FLASK VEB SERVER (Render & UptimeRobot uchun) -----------------
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "VikiKlub Bot 24/7 online rejimda ishlamoqda!"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
-# ----------------- BOT SOZLAMALARI -----------------
 TOKEN = os.getenv("BOT_TOKEN", "8490936302:AAFEmxGfQQAe0JujzYipmT-PnypTSkOgRIg")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "304538764"))
 REQUIRED_CHANNELS = ["uzmu_vikiklub"]
@@ -48,7 +34,7 @@ def start_handler(message):
         database.add_user(user_id)
         user_data[user_id] = {}
 
-        msg = "👋 **Xush kelibsiz!**\n\nVikiKlubga a'zo bo'lish uchun anketani to'ldiramiz.\n\n1️⃣ **Ism va Familiyangizni kiriting:**\n_(Masalan: Akobir Abdimo'minov)_"
+        msg = "👋 **Xush kelibsiz!**\n\nWikiKlubga a'zo bo'lish uchun anketani to'ldiramiz.\n\n1️⃣ **Ism va Familiyangizni kiriting:**\n_(Masalan: Akobir Abdimo'minov)_"
         sent_msg = bot.send_message(user_id, msg, parse_mode="Markdown")
         bot.register_next_step_handler(sent_msg, process_name)
     except Exception as e:
@@ -230,23 +216,140 @@ def finalize_registration(user_id):
     )
     
     try:
+        print(f"Adminga xabar yuborilmoqda: ADMIN_ID={ADMIN_ID}")
         bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
+        print("Adminga xabar muvaffaqiyatli yetib bordi!")
     except Exception as e:
         print(f"❌ ADMINGA XABAR YUBORISHDA XATOLIK: {e}")
 
-# ----------------- ISHGA TUSHIRISH (UZLUKSIZ SIKL) -----------------
 if __name__ == '__main__':
-    # Flask veb-serverini alohida oqimda ishga tushirish
-    server_thread = threading.Thread(target=run_flask)
-    server_thread.daemon = True
-    server_thread.start()
-
-    print("Bot va Veb-server Render.com platformasida ishga tushdi...")
-
-    # Bot uzluksiz ishlashi uchun qayta ulanuvchi sikl
+    print("Bot Render.com serverida ishga tushdi...")
     while True:
         try:
-            bot.polling(non_stop=True, interval=0, timeout=20)
+            bot.polling(none_stop=True, interval=1, timeout=30)
         except Exception as e:
-            print(f"Tarmoqda uzilish bo'ldi: {e}. 3 soniyada qayta ulanmoqda...")
-            time.sleep(3)
+            print(f"Tarmoq uzilishi: {e}. Qayta ulanmoqda...")
+            time.sleep(5)
+
+
+
+
+# =====================================================================
+# KVEST TIZIMI (Buni main.py faylining eng pastiga qo'shasiz)
+# =====================================================================
+
+SHART_KODLARI = {
+    1: "Amir Temur",
+    2: "Alisher Navoiy",
+    3: "Vikipediya",
+    4: "Toshkent",
+    5: "Parij",
+    6: "Xiyobon"
+}
+
+JAMOALAR = {
+    "Gryffindor": {
+        "sardor_id": 88154638880,  # <-- Shu yerga sardorning haqiqiy Telegram ID sini yozasiz
+        "marshrut": [2, 5, 1, 4, 3, 6],
+        "joriy_qadam": 0
+    },
+    "Ravenclaw": {
+        "sardor_id": 69017311680,          # <-- Hozircha bo'sh, keyin yozasiz
+        "marshrut": [4, 1, 3, 6, 2, 5],
+        "joriy_qadam": 0
+    },
+    "Zakovat": {
+        "sardor_id": 0,
+        "marshrut": [1, 3, 5, 2, 4, 6],
+        "joriy_qadam": 0
+    },
+    "Jamoa 4": {
+        "sardor_id": 0,
+        "marshrut": [3, 2, 6, 1, 5, 4],
+        "joriy_qadam": 0
+    },
+    "Jamoa 5": {
+        "sardor_id": 0,
+        "marshrut": [6, 4, 2, 3, 1, 5],
+        "joriy_qadam": 0
+    },
+    "Jamoa 6": {
+        "sardor_id": 0,
+        "marshrut": [5, 6, 4, 2, 3, 1],
+        "joriy_qadam": 0
+    }
+}
+
+# 1. Sardorlar /kvest buyrug'ini yozganda ishlaydi
+@bot.message_handler(commands=['kvest'])
+def kvest_boshlash_cmd(message):
+    user_id = message.from_user.id
+    sardormi = False
+    for jamoa_nomi, data in JAMOALAR.items():
+        if data["sardor_id"] == user_id:
+            sardormi = True
+            qadam = data["joriy_qadam"]
+            marshrut = data["marshrut"]
+            
+            if qadam < len(marshrut):
+                shart_raqami = marshrut[qadam]
+                bot.send_message(
+                    message.chat.id,
+                    f"👋 Salom, **{jamoa_nomi}** jamoasi sardori!\n\n"
+                    f"📌 Sizning hozirgi **vazifangiz**: Qog'ozdagi **{shart_raqami}-shartni** bajaring va chiqqan kodni shu botga yuboring.",
+                    parse_mode="Markdown"
+                )
+            else:
+                bot.send_message(message.chat.id, "🎉 Sizning jamoangiz allaqachon barcha shartlarni bajarib bo'lgan!")
+            break
+            
+    if not sardormi:
+        bot.send_message(message.chat.id, "⛔ Kechirasiz, bu kvest o'yini faqat jamoa sardorlari uchun mo'ljallangan.")
+
+# 2. Sardorlar kod yuborganda tekshiradi (boshqalarga aralashmaydi)
+@bot.message_handler(func=lambda message: message.from_user.id in [data["sardor_id"] for data in JAMOALAR.values() if data["sardor_id"] != 0])
+def kvest_kod_tekshir(message):
+    user_id = message.from_user.id
+    kiritilgan_kod = message.text.strip()
+    ADMIN_ID = 6901731168  # <-- O'zingizning Telegram ID raqamingizni yozing (adminga xabar borishi uchun)
+    
+    topilgan_jamoa = None
+    for j_nomi, j_data in JAMOALAR.items():
+        if j_data["sardor_id"] == user_id:
+            topilgan_jamoa = j_nomi
+            break
+            
+    if not topilgan_jamoa:
+        return 
+        
+    jamoa = topilgan_jamoa
+    qadam = JAMOALAR[jamoa]["joriy_qadam"]
+    marshrut = JAMOALAR[jamoa]["marshrut"]
+    
+    if qadam >= len(marshrut):
+        bot.send_message(message.chat.id, "🎉 Siz allaqachon barcha shartlarni tugatgansiz!")
+        return
+        
+    joriy_shart_raqami = marshrut[qadam]
+    togri_kod = SHART_KODLARI[joriy_shart_raqami]
+    
+    if kiritilgan_kod == togri_kod:
+        JAMOALAR[jamoa]["joriy_qadam"] += 1
+        yangi_qadam = JAMOALAR[jamoa]["joriy_qadam"]
+        
+        bot.send_message(
+            message.chat.id,
+            "🎉 *Tabriklayman! Kod to'g'ri.*\n\n"
+            "Joyingizdagi tashkilotchiga yaqinlashib, keyingi shart qog'ozini oling! 📄",
+            parse_mode="Markdown"
+        )
+        
+        if yangi_qadam < len(marshrut):
+            keyingi_shart = marshrut[yangi_qadam]
+            admin_xabar = f"📍 *{jamoa}* jamoasi sardori {joriy_shart_raqami}-shartni topdi!\nUlarga *{keyingi_shart}-shart* qog'ozini bering."
+        else:
+            admin_xabar = f"🏆 *{jamoa}* jamoasi sardori **BARCHA** shartlarni tugatib kvestni yakunladi!"
+            
+        bot.send_message(ADMIN_ID, admin_xabar, parse_mode="Markdown")
+    else:
+        bot.send_message(message.chat.id, "❌ *Kod xato!* Qaytadan tekshirib yuboring.", parse_mode="Markdown")
