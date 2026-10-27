@@ -353,3 +353,19 @@ def kvest_kod_tekshir(message):
         bot.send_message(ADMIN_ID, admin_xabar, parse_mode="Markdown")
     else:
         bot.send_message(message.chat.id, "❌ *Kod xato!* Qaytadan tekshirib yuboring.", parse_mode="Markdown")
+
+from flask import Flask
+import threading
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_web():
+    app.run(host="0.0.0.0", port=10000)
+
+# Veb-serverni alohida oqimda (thread) ishga tushiramiz
+t = threading.Thread(target=run_web)
+t.start()
