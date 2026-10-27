@@ -3,7 +3,7 @@ import time
 from telebot import TeleBot, types
 import database
 
-TOKEN = os.getenv("BOT_TOKEN", "8490936302:AAFEmxGfQQAe0JujzYipmT-PnypTSkOgRIg")
+TOKEN = os.getenv("BOT_TOKEN", "8490936302:AAFKqm0c9RKhGZWn_AIE4YqNgrBLdS1QEsc")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "304538764"))
 REQUIRED_CHANNELS = ["uzmu_vikiklub"]
 
