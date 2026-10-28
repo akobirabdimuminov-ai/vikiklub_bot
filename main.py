@@ -19,46 +19,15 @@ app = Flask('')
 
 @app.route('/')
 def home():
-    return "Bot ishlayapti!"
+    return "O'zMU Viki klubi boti va kvestlari 24/7 ishlayapti!"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
 
-# Flask serverini alohida oqimda (thread) ishga tushiramiz
+# Flask serverini alohida oqimda ishga tushiramiz
 threading.Thread(target=run_web, daemon=True).start()
----------------------------------------------------------
-import os
-import time
-from telebot import TeleBot, types
-import database
-from flask import Flask
-import threading
 
-TOKEN = os.getenv("BOT_TOKEN", "8490936302:AAFKqm0c9RKhGZWn_AIE4YqNgrBLdS1QEsc")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "304538764"))
-REQUIRED_CHANNELS = ["uzmu_vikiklub"]
-
-bot = TeleBot(TOKEN)
-database.init_db()
-
-user_data = {}
-
-# --- RENDER UXLАБ QOLMASLIGI UCHUN FLASK SERVERI ---
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "O'zMU Viki klubi boti 24/7 ishlayapti!"
-
-def run_web():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
-
-def keep_alive():
-    t = threading.Thread(target=run_web)
-    t.start()
-----------------------------------------------------
 
 def check_subscriptions(user_id):
     for channel in REQUIRED_CHANNELS:
@@ -71,22 +40,44 @@ def check_subscriptions(user_id):
             return False
     return True
 
+
+# --- START VA ASOSIY MENYU ---
 @bot.message_handler(commands=['start'])
 def start_handler(message):
     try:
         user_id = message.from_user.id
-        if database.is_user_registered(user_id):
-            bot.send_message(user_id, "✅ Siz allaqachon ariza topshirgansiz!")
-            return
-
-        database.add_user(user_id)
-        user_data[user_id] = {}
-
-        msg = "👋 **Xush kelibsiz!**\n\nWikiKlubga a'zo bo'lish uchun anketani to'ldiramiz.\n\n1️⃣ **Ism va Familiyangizni kiriting:**\n_(Masalan: Akobir Abdimo'minov)_"
-        sent_msg = bot.send_message(user_id, msg, parse_mode="Markdown")
-        bot.register_next_step_handler(sent_msg, process_name)
+        
+        markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+        markup.add("📝 Ariza topshirish", "🎯 Kvest bo'limi")
+        
+        bot.send_message(
+            user_id, 
+            "👋 **Xush kelibsiz!**\n\n"
+            "OʻzMU Viki klubining rasmiy botiga keldingiz.\n"
+            "Quyidagi tugmalardan birini tanlang yoki buyruqlardan foydalaning:\n\n"
+            "• /ariza — Klubga a'zo bo'lish\n"
+            "• /kvest — Kvest bosqichlarida qatnashish",
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         print(f"Start handler xatosi: {e}")
+
+
+# --- ARIZA QISMI (6 TA KETMA-KET BOSQICH) ---
+@bot.message_handler(func=lambda message: message.text == "📝 Ariza topshirish" or message.text == "/ariza")
+def start_application(message):
+    user_id = message.from_user.id
+    if database.is_user_registered(user_id):
+        bot.send_message(user_id, "✅ Siz allaqachon ariza topshirgansiz!")
+        return
+
+    database.add_user(user_id)
+    user_data[user_id] = {}
+
+    msg = "📝 **OʻzMU Viki klubi a'zolik anketasi**\n\n1️⃣ **Ism va Familiyangizni kiriting:**\n_(Masalan: Akobir Abdimo'minov)_"
+    sent_msg = bot.send_message(user_id, msg, parse_mode="Markdown")
+    bot.register_next_step_handler(sent_msg, process_name)
 
 def process_name(message):
     try:
@@ -264,15 +255,41 @@ def finalize_registration(user_id):
     )
     
     try:
-        print(f"Adminga xabar yuborilmoqda: ADMIN_ID={ADMIN_ID}")
         bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
-        print("Adminga xabar muvaffaqiyatli yetib bordi!")
     except Exception as e:
         print(f"❌ ADMINGA XABAR YUBORISHDA XATOLIK: {e}")
 
+
+# --- KVEST QISMI ---
+@bot.message_handler(func=lambda message: message.text == "🎯 Kvest bo'limi" or message.text == "/kvest")
+def start_kvest(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    markup.add("1-bosqich", "2-bosqich", "3-bosqich", "⬅️ Asosiy menyu")
+    
+    bot.send_message(
+        message.chat.id, 
+        "🎯 **O'zMU Viki klubi kvestiga marhamat!**\n\nQuyidagi bosqichlardan birini tanlang:", 
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(func=lambda message: message.text in ["1-bosqich", "2-bosqich", "3-bosqich"])
+def handle_kvest_step(message):
+    step = message.text
+    bot.send_message(
+        message.chat.id, 
+        f"Siz **{step}**ni tanladingiz. Bu bosqich bo'yicha vazifa tez arada taqdim etiladi!",
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(func=lambda message: message.text == "⬅️ Asosiy menyu")
+def back_to_main(message):
+    start_handler(message)
+
+
+# --- ISHGA TUSHIRISH ---
 if __name__ == '__main__':
     print("Bot va veb-server ishga tushdi...")
-    keep_alive()  # Serverni uyg'oq ushlab turish uchun
     while True:
         try:
             bot.polling(none_stop=True, interval=1, timeout=30)
