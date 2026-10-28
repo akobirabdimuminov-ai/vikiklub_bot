@@ -2,6 +2,8 @@ import os
 import time
 from telebot import TeleBot, types
 import database
+from flask import Flask
+import threading
 
 TOKEN = os.getenv("BOT_TOKEN", "8490936302:AAFKqm0c9RKhGZWn_AIE4YqNgrBLdS1QEsc")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "304538764"))
@@ -11,6 +13,22 @@ bot = TeleBot(TOKEN)
 database.init_db()
 
 user_data = {}
+
+# --- RENDER UXLАБ QOLMASLIGI UCHUN FLASK SERVERI ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "O'zMU Viki klubi boti 24/7 ishlayapti!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = threading.Thread(target=run_web)
+    t.start()
+----------------------------------------------------
 
 def check_subscriptions(user_id):
     for channel in REQUIRED_CHANNELS:
@@ -223,7 +241,8 @@ def finalize_registration(user_id):
         print(f"❌ ADMINGA XABAR YUBORISHDA XATOLIK: {e}")
 
 if __name__ == '__main__':
-    print("Bot Render.com serverida ishga tushdi...")
+    print("Bot va veb-server ishga tushdi...")
+    keep_alive()  # Serverni uyg'oq ushlab turish uchun
     while True:
         try:
             bot.polling(none_stop=True, interval=1, timeout=30)
